@@ -9,7 +9,6 @@ import (
 	"slices"
 
 	_ "embed"
-
 	"mp3-stream/app"
 	"mp3-stream/handler"
 	"mp3-stream/middleware"
