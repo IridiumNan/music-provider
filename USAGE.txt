@@ -1,0 +1,12 @@
+mc [addr] [data dir]
+
+Default addr is 0.0.0.0:8080
+
+The addr format is `ipaddr:port` or `:port`
+
+
+Default data dir is ./data/
+
+Ensure your data dir exist. If dir not found, will exit with error instead of making this dir automatically.
+
+By the way, only mp3 format support.
