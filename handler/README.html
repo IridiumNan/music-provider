@@ -1579,9 +1579,26 @@ pre[class*="language-"] {
 </head>
 <body>
   <article class="markdown-body"><h1 id="mp3-stream" class="atx">mp3-stream</h1>
+<h2 id="challenge" class="atx">Challenge</h2>
+<p>This website use challenge to authorize your identity.</p>
+<p>Only this usage document and challenge endpoint can visit directly.</p>
+<p>For visit other endpoints. You must use process as below.</p>
+<ol>
+<li>Send a request to <code>/auth/challenge</code> then read nonce from response body.</li>
+<li>Hash this nonce then sign with you rsa private key.</li>
+<li>Create a <strong>new request with body</strong></li>
+</ol>
+<p>The <code>body</code> contains three sections:</p>
+<ol>
+<li>original nonce you received</li>
+<li><code>\n</code></li>
+<li>the signature your generated based on hash value and your private key (base64 encoding)</li>
+</ol>
+<hr>
 <h2 id="api" class="atx">API</h2>
+<p>For all API below, you should provide your signature, see challenge section</p>
 <ul>
-<li><code>/list/text</code> GET</li>
+<li><code>/list/text</code> POST</li>
 </ul>
 <p>Response Body</p>
 <pre><code class="fenced-code-block language-txt">music1.mp3
@@ -1592,7 +1609,7 @@ music3.mp3
 <pre><code class="fenced-code-block language-txt">No available music, contact music provider please</code></pre>
 <hr>
 <ul>
-<li><code>/list/json</code> GET</li>
+<li><code>/list/json</code> POST</li>
 </ul>
 <p>Response Body</p>
 <pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
@@ -1610,29 +1627,9 @@ music3.mp3
 <span class="token punctuation">}</span></code></pre>
 <hr>
 <ul>
-<li><code>/music?name=music_name&amp;percent=20</code> GET</li>
+<li><code>/music?name=music_name&amp;percent=20</code> POST</li>
 </ul>
 <p>Read music stream on body</p>
-<p>You can also try this on your browser</p>
-<hr>
-<h2 id="test" class="atx">Test</h2>
-<pre><code class="fenced-code-block language-bash"><span class="token comment"># run this backend first (ensure music on the ./music_data dir)</span>
-./mc <span class="token number">127.0</span>.0.1:8080 ./music_data</code></pre>
-<pre><code class="fenced-code-block language-bash"><span class="token comment"># test for all api</span>
-
-<span class="token comment"># get music list with text format</span>
-<span class="token function">curl</span> <span class="token string">"http://localhost:8080/list/text"</span>
-
-<span class="token comment"># get music list with json format</span>
-<span class="token function">curl</span> <span class="token string">"http://localhost:8080/list/json"</span>
-
-<span class="token comment"># get music stream with specific percent</span>
-<span class="token comment"># percent 80 for example</span>
-<span class="token comment"># NOTE: After the ?key1=value1&amp;key2=value2</span>
-<span class="token comment"># support key is </span>
-<span class="token comment"># 1. name for music file name</span>
-<span class="token comment"># 2. percent for stream percent</span>
-<span class="token function">curl</span> <span class="token string">"http://localhost:8080/music?name=陈奕迅葡萄成熟时.mp3&amp;percent=80"</span></code></pre>
 </article>
 </body>
 </html>

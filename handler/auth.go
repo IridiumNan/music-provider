@@ -118,10 +118,16 @@ func (a *Auth) MiddleWare(next func(w http.ResponseWriter, r *http.Request)) fun
 		defer r.Body.Close()
 
 		data, err := io.ReadAll(r.Body)
+		if len(data) == 0 {
+			w.WriteHeader(http.StatusNonAuthoritativeInfo)
+			fmt.Fprint(w, "signature required, visit the endpoint / for details")
+			return
+		}
+
 		nonce, receiveBase64, f := bytes.Cut(data, []byte("\n"))
 		if !f {
 			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprint(w, "invalid format")
+			fmt.Fprint(w, "invalid signature format")
 			return
 		}
 		if err != nil {

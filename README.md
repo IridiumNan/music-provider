@@ -1,8 +1,30 @@
 # mp3-stream
 
+## Challenge
+
+This website use challenge to authorize your identity.
+
+Only this usage document and challenge endpoint can visit directly.
+
+For visit other endpoints. You must use process as below.
+
+1. Send a request to `/auth/challenge` then read nonce from response body.
+2. Hash this nonce then sign with you rsa private key.
+3. Create a **new request with body**
+
+The `body` contains three sections:
+
+1. original nonce you received
+2. `\n`
+3. the signature your generated based on hash value and your private key (base64 encoding)
+
+---
+
 ## API
 
-- `/list/text` GET
+For all API below, you should provide your signature, see challenge section
+
+- `/list/text` POST
 
 Response Body
 
@@ -21,7 +43,7 @@ No available music, contact music provider please
 
 ---
 
-- `/list/json` GET
+- `/list/json` POST
 
 Response Body
 
@@ -47,35 +69,6 @@ If no available music
 
 ---
 
-- `/music?name=music_name&percent=20` GET
+- `/music?name=music_name&percent=20` POST
 
 Read music stream on body
-
-You can also try this on your browser
-
----
-
-## Test
-
-```bash
-# run this backend first (ensure music on the ./music_data dir)
-./mc 127.0.0.1:8080 ./music_data
-```
-
-```bash
-# test for all api
-
-# get music list with text format
-curl "http://localhost:8080/list/text"
-
-# get music list with json format
-curl "http://localhost:8080/list/json"
-
-# get music stream with specific percent
-# percent 80 for example
-# NOTE: After the ?key1=value1&key2=value2
-# support key is 
-# 1. name for music file name
-# 2. percent for stream percent
-curl "http://localhost:8080/music?name=陈奕迅葡萄成熟时.mp3&percent=80"
-```
