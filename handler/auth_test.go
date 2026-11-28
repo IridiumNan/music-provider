@@ -59,9 +59,9 @@ func newAuthReq(nonce []byte, privKey *rsa.PrivateKey) (*http.Request, error) {
 	}
 
 	var body bytes.Buffer
-	signatureEncoded := make([]byte, base64.RawStdEncoding.EncodedLen(len(sig)))
+	signatureEncoded := make([]byte, base64.StdEncoding.EncodedLen(len(sig)))
 
-	base64.RawStdEncoding.Encode(signatureEncoded, sig)
+	base64.StdEncoding.Encode(signatureEncoded, sig)
 
 	body.Write(nonce)
 	body.Write([]byte("\n"))

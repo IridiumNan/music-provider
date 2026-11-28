@@ -131,10 +131,14 @@ func (a *Auth) MiddleWare(next func(w http.ResponseWriter, r *http.Request)) fun
 			return
 		}
 
+		// trim all padding = on right for raw Decode
+		receiveBase64 = bytes.TrimSpace(receiveBase64)
+		receiveBase64 = bytes.TrimRight(receiveBase64, "=")
+
 		receiveSig := make([]byte, base64.RawStdEncoding.DecodedLen(len(receiveBase64)))
 		base64.RawStdEncoding.Decode(receiveSig, receiveBase64)
 		if !a.Verify(nonce, receiveSig) {
-			slog.Error("Failed to verify signature", "remote_addr", r.RemoteAddr)
+			slog.Warn("Failed to verify signature", "remote_addr", r.RemoteAddr)
 			w.WriteHeader(http.StatusUnauthorized)
 			fmt.Fprint(w, "Failed to verify")
 			return
