@@ -39,15 +39,15 @@ func signNonce(priv *rsa.PrivateKey, nonce []byte) ([]byte, error) {
 
 func getList(baseURL string, nonce []byte, signature []byte) {
 	var body bytes.Buffer
-	nonceEncoded := make([]byte, base64.RawStdEncoding.EncodedLen(len(nonce)))
 	signatureEncoded := make([]byte, base64.RawStdEncoding.EncodedLen(len(signature)))
 
-	base64.RawStdEncoding.Encode(nonceEncoded, nonce)
 	base64.RawStdEncoding.Encode(signatureEncoded, signature)
 
-	// body.Write(nonceEncoded)
-	// body.WriteRune('\n')
+	body.Write(nonce)
+	body.Write([]byte("\n"))
 	body.Write(signatureEncoded)
+
+	fmt.Println("send request with body:", body.String())
 
 	resp, err := http.Post(baseURL+"/list/text", "plain/text", &body)
 	if err != nil {

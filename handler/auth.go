@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
@@ -20,9 +21,9 @@ import (
 
 type hashVal struct {
 	// hash algo is sha256 (32 bytes)
-	hashByte      [32]byte
-	expired       atomic.Bool
-	timeoutSecond int
+	hashByte [32]byte
+	expired  atomic.Bool
+	timeout  time.Duration
 }
 
 // verify based on the signature
@@ -42,20 +43,20 @@ func (hv *hashVal) verify(pub *rsa.PublicKey, sig []byte) bool {
 // start begin a new timer for hash expire
 // you should run with gorutine
 func (hv *hashVal) start() {
-	<-time.After(time.Duration(hv.timeoutSecond) * time.Second)
+	<-time.After(hv.timeout)
 	hv.expired.Store(true)
 }
 
 // newHash with default timeout 10 seconds
 func newHash(hash [32]byte) *hashVal {
-	return newHashWithTimeout(hash, 10)
+	return newHashWithTimeout(hash, 15*time.Second)
 }
 
-func newHashWithTimeout(hash [32]byte, timeoutSecond int) *hashVal {
+func newHashWithTimeout(hash [32]byte, timeout time.Duration) *hashVal {
 	val := hashVal{
-		hashByte:      hash,
-		expired:       atomic.Bool{},
-		timeoutSecond: timeoutSecond,
+		hashByte: hash,
+		expired:  atomic.Bool{},
+		timeout:  timeout,
 	}
 	go val.start()
 	return &val
@@ -63,8 +64,10 @@ func newHashWithTimeout(hash [32]byte, timeoutSecond int) *hashVal {
 
 type Auth struct {
 	pubKey  *rsa.PublicKey
-	hashSet []*hashVal
+	hashSet map[string]*hashVal
 	mu      sync.RWMutex
+
+	expireTiemout time.Duration
 }
 
 func (a *Auth) HandleChallenge(w http.ResponseWriter, r *http.Request) {
@@ -75,7 +78,7 @@ func (a *Auth) HandleChallenge(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.mu.Lock()
-	a.hashSet = append(a.hashSet, newHash(sha256.Sum256(chBytes)))
+	a.hashSet[string(chBytes)] = newHashWithTimeout(sha256.Sum256(chBytes), a.expireTiemout)
 	a.mu.Unlock()
 }
 
@@ -85,37 +88,42 @@ func (a *Auth) autoClean(interval time.Duration) {
 		<-time.After(interval)
 		a.mu.Lock()
 		startLen := len(a.hashSet)
-		newSet := make([]*hashVal, 0, startLen)
-		for _, h := range a.hashSet {
+		newSet := make(map[string]*hashVal, startLen)
+		for nonce, h := range a.hashSet {
 			if !h.expired.Load() {
-				newSet = append(newSet, h)
+				newSet[nonce] = h
 			}
 		}
 
 		a.hashSet = newSet
-		endLen := len(newSet)
-		slog.Debug("finish clear expired set", "original_len", startLen, "new_len", endLen)
+		// endLen := len(newSet)
+		// slog.Debug("finish clear expired set", "original_len", startLen, "new_len", endLen)
 		a.mu.Unlock()
 	}
 }
 
-func (a *Auth) Verify(sig []byte) bool {
+func (a *Auth) Verify(nonce, sig []byte) bool {
 	a.mu.RLock()
 	defer a.mu.RUnlock()
-	for _, h := range a.hashSet {
-		if h.verify(a.pubKey, sig) {
-			return true
-		}
+	h, ok := a.hashSet[string(nonce)]
+	if !ok {
+		return false
 	}
 
-	return false
+	return h.verify(a.pubKey, sig)
 }
 
 func (a *Auth) MiddleWare(next func(w http.ResponseWriter, r *http.Request)) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		defer r.Body.Close()
 
-		receiveBase64, err := io.ReadAll(r.Body)
+		data, err := io.ReadAll(r.Body)
+		nonce, receiveBase64, f := bytes.Cut(data, []byte("\n"))
+		if !f {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprint(w, "invalid format")
+			return
+		}
 		if err != nil {
 			slog.Error("error while reading signature", "err", err)
 			w.WriteHeader(http.StatusBadRequest)
@@ -125,7 +133,7 @@ func (a *Auth) MiddleWare(next func(w http.ResponseWriter, r *http.Request)) fun
 
 		receiveSig := make([]byte, base64.RawStdEncoding.DecodedLen(len(receiveBase64)))
 		base64.RawStdEncoding.Decode(receiveSig, receiveBase64)
-		if !a.Verify(receiveSig) {
+		if !a.Verify(nonce, receiveSig) {
 			slog.Error("Failed to verify signature", "remote_addr", r.RemoteAddr)
 			w.WriteHeader(http.StatusUnauthorized)
 			fmt.Fprint(w, "Failed to verify")
@@ -137,6 +145,10 @@ func (a *Auth) MiddleWare(next func(w http.ResponseWriter, r *http.Request)) fun
 }
 
 func NewAuth(publicKeyData []byte) (*Auth, error) {
+	return NewAuthWitTimeout(publicKeyData, 30*time.Second, 15*time.Second)
+}
+
+func NewAuthWitTimeout(publicKeyData []byte, cleanInterval time.Duration, challengeTimeout time.Duration) (*Auth, error) {
 	block, _ := pem.Decode(publicKeyData)
 	pubAny, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
@@ -146,11 +158,12 @@ func NewAuth(publicKeyData []byte) (*Auth, error) {
 	pub := pubAny.(*rsa.PublicKey)
 
 	au := Auth{
-		pubKey:  pub,
-		hashSet: make([]*hashVal, 0, 10),
-		mu:      sync.RWMutex{},
+		pubKey:        pub,
+		hashSet:       make(map[string]*hashVal, 10),
+		mu:            sync.RWMutex{},
+		expireTiemout: challengeTimeout,
 	}
-	go au.autoClean(30 * time.Second)
+	go au.autoClean(cleanInterval)
 
 	return &au, nil
 }
