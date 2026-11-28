@@ -17,6 +17,9 @@ import (
 //go:embed USAGE.txt
 var usage string
 
+//go:embed public.pem
+var publicKey []byte
+
 var helpOptions = []string{"-h", "--help", "help"}
 
 func main() {
@@ -46,14 +49,23 @@ func main() {
 }
 
 func serve() {
+	auth, err := handler.NewAuth(publicKey)
+	if err != nil {
+		slog.Error("error when init auth obj", "err", err)
+		os.Exit(1)
+	}
+
 	router := http.NewServeMux()
 
-	router.HandleFunc("/list/json", handler.HandlerListJSON)
-	router.HandleFunc("/list/text", handler.HandlerListText)
-
-	router.HandleFunc("/music", handler.HandlerMusic)
-
 	router.HandleFunc("/", handler.HanlderHelp)
+
+	router.HandleFunc("/auth/challenge", auth.HandleChallenge)
+
+	// add auth middleware for source visit
+	router.HandleFunc("/list/json", auth.MiddleWare(handler.HandlerListJSON))
+	router.HandleFunc("/list/text", auth.MiddleWare(handler.HandlerListText))
+
+	router.HandleFunc("/music", auth.MiddleWare(handler.HandlerMusic))
 
 	slog.Info("starting serving musics", "data_dir", app.DataDir, "app.Addr", app.Addr)
 

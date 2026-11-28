@@ -11,7 +11,7 @@ import (
 )
 
 func HandlerMusic(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte("only GET method support"))
 		return

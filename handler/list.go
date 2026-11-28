@@ -12,9 +12,9 @@ import (
 )
 
 func HandlerListJSON(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("only GET method support"))
+		w.Write([]byte("only Post method support"))
 		return
 	}
 	type JsonBody struct {
@@ -49,9 +49,9 @@ func HandlerListJSON(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandlerListText(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte("only GET method support"))
+		w.Write([]byte("only Post method support"))
 		return
 	}
 	if len(app.MusicList) == 0 {
